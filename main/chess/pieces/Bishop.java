@@ -16,7 +16,7 @@ public class Bishop implements ChessPiece   {
     public boolean getWhite() { return this.white; }
 
     @Override
-    public boolean check(ChessPiece[][] board, int from, int to) {
+    public boolean check(ChessPiece[][] board, int[] from, int[] to) {
         return false;
     }
 

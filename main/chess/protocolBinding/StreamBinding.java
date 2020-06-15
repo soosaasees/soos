@@ -7,4 +7,6 @@ public class StreamBinding {
     public static final int ROCHADE = 3;
     public static final int ENDGAME = 4;
     public static final int PROPOSEEND = 5;
+    public static final int CHOOSECOLOR = 6;
+    public static final int PROPOSALANSWER = 7;
 }

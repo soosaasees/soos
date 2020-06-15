@@ -25,6 +25,7 @@ public class StreamBindingSender implements ChessSender {
 
     @Override
     public void sendChooseColor(boolean white) throws IOException, StatusException {
+        this.dos.writeInt(CHOOSECOLOR);
         this.dos.writeBoolean(white);
     }
 
@@ -63,6 +64,7 @@ public class StreamBindingSender implements ChessSender {
 
     @Override
     public void sendProposalAnswer(boolean accept) throws IOException, StatusException {
+        this.dos.writeInt(PROPOSALANSWER);
         this.dos.writeBoolean(accept);
     }
 }

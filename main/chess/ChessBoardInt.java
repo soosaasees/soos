@@ -11,7 +11,7 @@ public interface ChessBoardInt {
     void check();
 
     //trägt move ins Brett ein
-    void move(int from, int to) throws IOException;
+    void move(int from, int to) throws ChessException;
 
     //trägt move mit Bauernregel ins Brett ein
     void movePawnRule(int from, int to, int figureType);

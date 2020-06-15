@@ -2,19 +2,27 @@ package chess;
 
 
 import java.io.IOException;
+import java.util.Random;
 
-public class ChessEngine implements ChessSender, ChessReceiver{
+public class ChessEngine implements ChessReceiver, ChessUsage {
 
     public static final int UNDEFINED_DICE=-1;
+    private final ChessSender sender;
 
     private ChessStatus status;
     private int sentDice=UNDEFINED_DICE;
+    private int receivedDice=UNDEFINED_DICE;
     private ChessBoardInt board;
     private boolean white;
-    ChessEngine()   {
+    ChessEngine(ChessSender sender)   {
         this.status=ChessStatus.START;
         this.board=new ChessBoard();
+        this.sender=sender;
     }
+
+    /////////////////////////////////////////////////////////////////////
+    //                      remote engine support                      //
+    /////////////////////////////////////////////////////////////////////
 
     //EMPFÄNGERSEITE
     @Override
@@ -29,6 +37,8 @@ public class ChessEngine implements ChessSender, ChessReceiver{
             this.status=ChessStatus.START_CHOOSING_COLOR;
         else
             this.status=ChessStatus.START_WAITING_FOR_COLOR;
+        } else  {
+            this.receivedDice=number;
         }
     }
 
@@ -37,7 +47,7 @@ public class ChessEngine implements ChessSender, ChessReceiver{
         if(this.status != ChessStatus.START_WAITING_FOR_COLOR)
             throw new StatusException();
 
-        if(white==true) {
+        if(white) {
             this.status = ChessStatus.PASSIVE;
             this.white  = false;
         }
@@ -48,7 +58,7 @@ public class ChessEngine implements ChessSender, ChessReceiver{
     }
 
     @Override
-    public void receiveMove(int from, int to) throws IOException, StatusException {
+    public void receiveMove(int from, int to) throws IOException, ChessException, StatusException {
         if(this.status != ChessStatus.PASSIVE)
             throw new StatusException();
 
@@ -99,7 +109,7 @@ public class ChessEngine implements ChessSender, ChessReceiver{
     public void receiveProposalAnswer(boolean accept) throws StatusException {
         if(this.status != ChessStatus.WAITING)
             throw new StatusException();
-        if(accept==true)
+        if(accept)
             this.status=ChessStatus.END;
         else
             this.status=ChessStatus.ACTIVE;
@@ -108,29 +118,7 @@ public class ChessEngine implements ChessSender, ChessReceiver{
 
     //SENDERSEITE
 
-    @Override
-    public void sendDice(int number) throws IOException, StatusException {
-        if(this.status != ChessStatus.START)
-            throw new StatusException();
 
-        this.sentDice=number;
-        //sende per TCP
-        this.status=ChessStatus.SENT_DICE;
-    }
-
-    @Override
-    public void sendChooseColor(boolean white) throws IOException, StatusException {
-        if(this.status != ChessStatus.START_CHOOSING_COLOR)
-            throw new StatusException();
-        this.white=white;
-        //sende per TCP
-        if(white==true)
-            this.status=ChessStatus.ACTIVE;
-        else
-            this.status=ChessStatus.PASSIVE;
-    }
-
-    @Override
     public void sendMove(int from, int to) throws IOException, StatusException {
         if(this.status != ChessStatus.ACTIVE)
             throw new StatusException();
@@ -139,7 +127,6 @@ public class ChessEngine implements ChessSender, ChessReceiver{
         this.status=ChessStatus.PASSIVE;
     }
 
-    @Override
     public void sendMovePawnRule(int from, int to, int figureType) throws IOException, StatusException {
         if(this.status != ChessStatus.ACTIVE)
             throw new StatusException();
@@ -148,7 +135,7 @@ public class ChessEngine implements ChessSender, ChessReceiver{
         this.status=ChessStatus.PASSIVE;
     }
 
-    @Override
+
     public void sendRochade(int from) throws IOException, StatusException {
         if(this.status != ChessStatus.ACTIVE)
             throw new StatusException();
@@ -157,7 +144,6 @@ public class ChessEngine implements ChessSender, ChessReceiver{
         this.status=ChessStatus.PASSIVE;
     }
 
-    @Override
     public void sendEndGame(int reason) throws IOException, StatusException {
         if(this.status != ChessStatus.ACTIVE)
             throw new StatusException();
@@ -167,7 +153,6 @@ public class ChessEngine implements ChessSender, ChessReceiver{
 
     }
 
-    @Override
     public void sendProposalEnd(int reason) throws IOException, StatusException {
         if(this.status != ChessStatus.ACTIVE)
             throw new StatusException();
@@ -177,14 +162,73 @@ public class ChessEngine implements ChessSender, ChessReceiver{
 
     }
 
-    @Override
     public void sendProposalAnswer(boolean accept) throws IOException, StatusException {
         if(this.status != ChessStatus.ANSWERING)
             throw new StatusException();
 
         //sende answer
-        if(accept==true)
+        if(accept)
             this.status=ChessStatus.END;
+        else
+            this.status=ChessStatus.PASSIVE;
+    }
+    /////////////////////////////////////////////////////////////////////
+    //                       user interface support                    //
+    /////////////////////////////////////////////////////////////////////
+    @Override
+    public void doDice() throws StatusException, IOException {
+        if(this.status != ChessStatus.START)
+            throw new StatusException();
+
+        Random r= new Random();
+        this.sentDice = r.nextInt();
+
+        // send via Sender
+        this.sender.sendDice(this.sentDice);
+        if(this.receivedDice==UNDEFINED_DICE)
+            this.status=ChessStatus.SENT_DICE;
+        else    {
+            if(this.sentDice==this.receivedDice)
+                this.status=ChessStatus.START;
+            else if(this.sentDice>=receivedDice)
+                this.status=ChessStatus.START_CHOOSING_COLOR;
+            else
+                this.status=ChessStatus.START_WAITING_FOR_COLOR;
+        }
+    }
+
+    @Override
+    public boolean is(ChessStatus status) {
+        return this.status==status;
+
+    }
+
+    @Override
+    public void move(int from, int to) throws ChessException, StatusException, IOException {
+
+        if(this.status != ChessStatus.ACTIVE)
+            throw new StatusException();
+        if(this.white!=board.posWhite(from)||
+                from<0||from>63||
+                to<0||to>63)
+            throw new ChessException();
+        board.move(from, to);
+
+        //sende move
+        this.sender.sendMove(from, to);
+        this.status=ChessStatus.PASSIVE;
+    }
+
+    @Override
+    public void chooseColor(boolean white) throws StatusException, IOException {
+        if(this.status != ChessStatus.START_CHOOSING_COLOR)
+            throw new StatusException();
+        this.white=white;
+        //sende per TCP
+        this.sender.sendChooseColor(this.white);
+
+        if(white)
+            this.status=ChessStatus.ACTIVE;
         else
             this.status=ChessStatus.PASSIVE;
     }

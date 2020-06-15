@@ -53,12 +53,12 @@ public class ChessBoard implements ChessBoardInt{
     }
 
     @Override
-    public void move(int from, int to) throws IOException {
+    public void move(int from, int to) throws ChessException {
         int[] fromPos=parse(from);
         int[] toPos=parse(to);
 
-        if(board[fromPos[0]][fromPos[1]].check(board, fromPos, toPos)==false)
-            throw new IOException();
+        if(!board[fromPos[0]][fromPos[1]].check(board, fromPos, toPos))
+            throw new ChessException();
         board[toPos[0]][toPos[1]]=board[fromPos[0]][fromPos[1]];
     }
 
@@ -84,6 +84,7 @@ public class ChessBoard implements ChessBoardInt{
                 a=0;
                 b=b+1;
             }
+            x=x-1;
         }
         out[0]=b;
         out[1]=a;

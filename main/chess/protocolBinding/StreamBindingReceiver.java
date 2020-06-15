@@ -1,5 +1,6 @@
 package chess.protocolBinding;
 
+import chess.ChessException;
 import chess.ChessReceiver;
 import chess.StatusException;
 
@@ -26,10 +27,14 @@ public class StreamBindingReceiver extends Thread   {
         this.receiver.receiveChooseColor(white);
     }
 
-    public void readMove() throws IOException, StatusException   {
+    public void readMove() throws IOException, StatusException {
         int from=this.dis.readInt();
         int to=this.dis.readInt();
-        this.receiver.receiveMove(from, to);
+        try {
+            this.receiver.receiveMove(from, to);
+        } catch (ChessException e) {
+            throw new IOException();
+        }
     }
 
     public void readMovePawnRule() throws IOException, StatusException   {
@@ -59,7 +64,7 @@ public class StreamBindingReceiver extends Thread   {
         this.receiver.receiveProposalAnswer(answer);
     }
 
-    public void run()   {
+    public void run() {
         boolean again= true;
         while(again=true) {
             try {
@@ -72,12 +77,11 @@ public class StreamBindingReceiver extends Thread   {
                     case StreamBinding.ROCHADE: this.readRochade(); break;
                     case StreamBinding.ENDGAME: this.readEndGame(); break;
                     case StreamBinding.PROPOSEEND: this.readProposalEnd(); break;
+                    case StreamBinding.CHOOSECOLOR: this.readChooseColor(); break;
+                    case StreamBinding.PROPOSALANSWER: this.readProposalAnswer(); break;
                     default: again=false; System.err.println("unknown command code: "+ cmd); break;
                 }
-            } catch (IOException e) {
-                System.err.println("Status Exception: " + e.getLocalizedMessage());
-                again = false;
-            } catch (StatusException e) {
+            } catch (IOException | StatusException e) {
                 System.err.println("Status Exception: " + e.getLocalizedMessage());
                 again = false;
             }
